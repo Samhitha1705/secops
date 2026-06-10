@@ -22,16 +22,15 @@ pipeline {
             }
         }
 
-        stage('JaCoCo') {
+        stage('Build + Coverage') {
             steps {
-                sh 'mvn jacoco:report'
+                sh 'mvn clean verify'
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('sonarqube') {
-
+                withSonarQubeEnv('sonar') {
                     sh '''
                     mvn sonar:sonar \
                     -Dsonar.projectKey=devsecops-demo
@@ -86,7 +85,7 @@ pipeline {
 
                 docker run -d \
                 --name devsecops-demo \
-                -p 8082:8082 \
+                -p 8082:8080 \
                 devsecops-demo
                 '''
             }

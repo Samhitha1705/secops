@@ -1,3 +1,2 @@
 GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
-devsecops-demo,com.devsecops.demo,DevsecopsApplication,8,0,0,0,3,0,2,0,2,0
-devsecops-demo,com.devsecops.demo.controller,HomeController,7,0,0,0,3,0,3,0,3,0
+devsecops-demo,com.devsecops.demo.controller,HomeController,0,7,0,0,0,3,0,3,0,3
