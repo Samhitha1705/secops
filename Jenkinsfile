@@ -82,7 +82,7 @@ pipeline {
             steps {
                 sh '''
                 ls -la
-                docker build -t yourdockerhubusername/devsecops-demo:latest .
+                docker build -t vedasamhitha17/devsecops-demo:latest .
                 '''
             }
         }
