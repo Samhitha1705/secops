@@ -13,9 +13,31 @@ pipeline {
 
     stages {
 
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
         stage('Checkout Code') {
             steps {
-                git 'https://github.com/Samhitha1705/devsecops-project.git'
+                git branch: 'main',
+                    url: 'https://github.com/Samhitha1705/devsecops-project.git'
+            }
+        }
+
+        stage('Debug Workspace') {
+            steps {
+                sh '''
+                echo "CURRENT DIRECTORY:"
+                pwd
+
+                echo "FILES:"
+                ls -la
+
+                echo "CHECK DOCKERFILE:"
+                find . -name Dockerfile
+                '''
             }
         }
 
@@ -59,7 +81,10 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                sh "docker build -t ${DOCKER_IMAGE} ."
+                sh '''
+                ls -la
+                docker build -t yourdockerhubusername/devsecops-demo:latest .
+                '''
             }
         }
 
@@ -79,7 +104,7 @@ pipeline {
 
         stage('Push to Docker Hub') {
             steps {
-                sh "docker push ${DOCKER_IMAGE}"
+                sh 'docker push yourdockerhubusername/devsecops-demo:latest'
             }
         }
 
