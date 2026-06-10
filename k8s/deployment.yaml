@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: devsecops-demo
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: devsecops-demo
+
+  template:
+
+    metadata:
+      labels:
+        app: devsecops-demo
+
+    spec:
+      containers:
+
+      - name: devsecops-demo
+
+        image: devsecops-demo:latest
+
+        ports:
+        - containerPort: 8082
