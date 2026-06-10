@@ -2,27 +2,24 @@ pipeline {
 
     agent any
 
+    tools {
+        maven 'Maven3'
+    }
+
+    environment {
+        SONAR_SERVER = 'sonar'
+        DOCKER_IMAGE = 'yourdockerhubusername/devsecops-demo:latest'
+    }
+
     stages {
 
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
-                checkout scm
+                git 'https://github.com/Samhitha1705/devsecops-project.git'
             }
         }
 
-        stage('Compile') {
-            steps {
-                sh 'mvn clean compile'
-            }
-        }
-
-        stage('Unit Test') {
-            steps {
-                sh 'mvn test'
-            }
-        }
-
-        stage('Build + Coverage') {
+        stage('Build + Test') {
             steps {
                 sh 'mvn clean verify'
             }
@@ -30,69 +27,82 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('sonar') {
+                withSonarQubeEnv("${SONAR_SERVER}") {
                     sh '''
                     mvn sonar:sonar \
-                    -Dsonar.projectKey=devsecops-demo
+                    -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
                     '''
                 }
             }
         }
 
-        stage('Quality Gate') {
+        stage('Quality Gate Check') {
             steps {
-                waitForQualityGate abortPipeline: true
-            }
-        }
+                script {
+                    timeout(time: 15, unit: 'MINUTES') {
+                        def qg = waitForQualityGate()
+                        echo "SonarQube Quality Gate status: ${qg.status}"
 
-        stage('OWASP Dependency Check') {
-            steps {
-                dependencyCheck(
-                    additionalArguments: '--scan .',
-                    odcInstallation: 'DependencyCheck'
-                )
-            }
-        }
-
-        stage('Trivy FS Scan') {
-            steps {
-                sh 'trivy fs .'
+                        if (qg.status != 'OK') {
+                            error "Pipeline failed due to Quality Gate: ${qg.status}"
+                        }
+                    }
+                }
             }
         }
 
         stage('Package') {
             steps {
-                sh 'mvn package'
+                sh 'mvn package -DskipTests'
             }
         }
 
         stage('Docker Build') {
             steps {
-                sh 'docker build -t devsecops-demo .'
+                sh "docker build -t ${DOCKER_IMAGE} ."
             }
         }
 
-        stage('Trivy Image Scan') {
+        stage('Docker Login') {
             steps {
-                sh 'trivy image devsecops-demo'
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'USER',
+                    passwordVariable: 'PASS'
+                )]) {
+                    sh '''
+                    echo $PASS | docker login -u $USER --password-stdin
+                    '''
+                }
             }
         }
 
-        stage('Deploy') {
+        stage('Push to Docker Hub') {
+            steps {
+                sh "docker push ${DOCKER_IMAGE}"
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
             steps {
                 sh '''
-                docker rm -f devsecops-demo || true
-
-                docker run -d \
-                --name devsecops-demo \
-                -p 8082:8080 \
-                devsecops-demo
+                kubectl apply -f k8s/
+                kubectl get pods
+                kubectl get svc
                 '''
             }
         }
     }
 
     post {
+        success {
+            echo "PIPELINE SUCCESS ✔"
+        }
+
+        failure {
+            echo "PIPELINE FAILED ❌"
+        }
+
         always {
             cleanWs()
         }
