@@ -103,7 +103,7 @@ pipeline {
 
         stage('Push to Docker Hub') {
             steps {
-                sh 'docker push yourdockerhubusername/devsecops-demo:latest'
+                sh 'docker push vedasamhitha17/devsecops-demo:latest'
             }
         }
 
