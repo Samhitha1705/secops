@@ -8,7 +8,7 @@ pipeline {
 
     environment {
         SONAR_SERVER = 'sonar'
-        DOCKER_IMAGE = 'yourdockerhubusername/devsecops-demo:latest'
+        DOCKER_IMAGE = 'vedasamhitha17/devsecops-demo:latest'
     }
 
     stages {
