@@ -25,21 +25,6 @@ pipeline {
             }
         }
 
-        stage('Debug Workspace') {
-            steps {
-                sh '''
-                echo "CURRENT DIRECTORY:"
-                pwd
-
-                echo "FILES:"
-                ls -la
-
-                echo "CHECK DOCKERFILE:"
-                find . -name Dockerfile
-                '''
-            }
-        }
-
         stage('Build + Test') {
             steps {
                 sh 'mvn clean verify'
@@ -72,18 +57,42 @@ pipeline {
             }
         }
 
+        /* ---------------- SECURITY SCANS ---------------- */
+
+        stage('OWASP Dependency Check') {
+            steps {
+                script {
+                    try {
+                        dependencyCheck(
+                            additionalArguments: '--scan .',
+                            odcInstallation: 'DependencyCheck'
+                        )
+                    } catch (err) {
+                        echo "OWASP not configured - skipping"
+                    }
+                }
+            }
+        }
+
+        stage('Trivy FS Scan') {
+            steps {
+                sh 'trivy fs .'
+            }
+        }
+
+        /* ---------------- BUILD ARTIFACT ---------------- */
+
         stage('Package') {
             steps {
                 sh 'mvn package -DskipTests'
             }
         }
 
+        /* ---------------- DOCKER ---------------- */
+
         stage('Docker Build') {
             steps {
-                sh '''
-                ls -la
-                docker build -t vedasamhitha17/devsecops-demo:latest .
-                '''
+                sh "docker build -t ${DOCKER_IMAGE} ."
             }
         }
 
@@ -103,14 +112,23 @@ pipeline {
 
         stage('Push to Docker Hub') {
             steps {
-                sh 'docker push vedasamhitha17/devsecops-demo:latest'
+                sh "docker push ${DOCKER_IMAGE}"
             }
         }
+
+        stage('Trivy Image Scan') {
+            steps {
+                sh "trivy image ${DOCKER_IMAGE}"
+            }
+        }
+
+        /* ---------------- KUBERNETES ---------------- */
 
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
                 kubectl apply -f k8s/
+                kubectl rollout status deployment/devsecops-demo
                 kubectl get pods
                 kubectl get svc
                 '''
