@@ -9,6 +9,7 @@ pipeline {
     environment {
         SONAR_SERVER = 'sonar'
         DOCKER_IMAGE = 'vedasamhitha17/devsecops-demo:latest'
+        KUBECONFIG = '/var/lib/jenkins/.kube/config'
     }
 
     stages {
@@ -47,7 +48,7 @@ pipeline {
                 script {
                     timeout(time: 15, unit: 'MINUTES') {
                         def qg = waitForQualityGate()
-                        echo "SonarQube Quality Gate status: ${qg.status}"
+                        echo "Quality Gate: ${qg.status}"
 
                         if (qg.status != 'OK') {
                             error "Pipeline failed due to Quality Gate: ${qg.status}"
@@ -80,13 +81,13 @@ pipeline {
                     try {
                         sh 'trivy fs .'
                     } catch (err) {
-                        echo "Trivy not installed - skipping FS scan"
+                        echo "Trivy FS not available - skipping"
                     }
                 }
             }
         }
 
-        /* ---------------- BUILD ---------------- */
+        /* ---------------- BUILD ARTIFACT ---------------- */
 
         stage('Package') {
             steps {
@@ -106,11 +107,11 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'USER',
-                    passwordVariable: 'PASS'
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh '''
-                    echo $PASS | docker login -u $USER --password-stdin
+                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
                     '''
                 }
             }
@@ -128,22 +129,24 @@ pipeline {
                     try {
                         sh "trivy image ${DOCKER_IMAGE}"
                     } catch (err) {
-                        echo "Trivy image scan skipped (tool not installed)"
+                        echo "Trivy image scan skipped"
                     }
                 }
             }
         }
 
-        /* ---------------- KUBERNETES ---------------- */
+        /* ---------------- KUBERNETES DEPLOY ---------------- */
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh '''
+                sh """
+                export KUBECONFIG=${KUBECONFIG}
+
                 kubectl apply -f k8s/
                 kubectl rollout status deployment/devsecops-demo
                 kubectl get pods
                 kubectl get svc
-                '''
+                """
             }
         }
     }

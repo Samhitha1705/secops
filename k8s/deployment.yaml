@@ -1,9 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: devsecops-demo
+
 spec:
   replicas: 1
+
   selector:
     matchLabels:
       app: devsecops-demo
@@ -16,7 +19,6 @@ spec:
     spec:
       containers:
       - name: devsecops-demo
-        image: yourdockerhubusername/devsecops-demo:latest
-        imagePullPolicy: Always
+        image: vedasamhitha17/devsecops-demo:latest   # FIXED
         ports:
         - containerPort: 8082
