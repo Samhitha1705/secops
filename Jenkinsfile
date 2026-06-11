@@ -45,57 +45,31 @@ pipeline {
 
         stage('Quality Gate Check') {
             steps {
-                script {
-                    timeout(time: 15, unit: 'MINUTES') {
+                timeout(time: 15, unit: 'MINUTES') {
+                    script {
                         def qg = waitForQualityGate()
-                        echo "Quality Gate: ${qg.status}"
-
                         if (qg.status != 'OK') {
-                            error "Pipeline failed due to Quality Gate: ${qg.status}"
+                            error "Quality Gate failed: ${qg.status}"
                         }
                     }
                 }
             }
         }
 
-        /* ---------------- SECURITY SCANS ---------------- */
-
         stage('OWASP Dependency Check') {
             steps {
-                script {
-                    try {
-                        dependencyCheck(
-                            additionalArguments: '--scan .',
-                            odcInstallation: 'DependencyCheck'
-                        )
-                    } catch (err) {
-                        echo "OWASP not configured - skipping"
-                    }
-                }
+                dependencyCheck(
+                    odcInstallation: 'DependencyCheck',
+                    additionalArguments: '--scan . --format HTML'
+                )
             }
         }
-
-        stage('Trivy FS Scan') {
-            steps {
-                script {
-                    try {
-                        sh 'trivy fs .'
-                    } catch (err) {
-                        echo "Trivy FS not available - skipping"
-                    }
-                }
-            }
-        }
-
-        /* ---------------- BUILD ARTIFACT ---------------- */
 
         stage('Package') {
             steps {
                 sh 'mvn package -DskipTests'
             }
         }
-
-        /* ---------------- DOCKER ---------------- */
 
         stage('Docker Build') {
             steps {
@@ -105,37 +79,47 @@ pipeline {
 
         stage('Docker Login') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
                     sh '''
-                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
                     '''
                 }
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage('Push Docker Image') {
             steps {
                 sh "docker push ${DOCKER_IMAGE}"
             }
         }
 
-        stage('Trivy Image Scan') {
+        stage('Trivy File System Scan') {
             steps {
-                script {
-                    try {
-                        sh "trivy image ${DOCKER_IMAGE}"
-                    } catch (err) {
-                        echo "Trivy image scan skipped"
-                    }
-                }
+                sh '''
+                trivy fs \
+                --severity HIGH,CRITICAL \
+                --exit-code 1 \
+                .
+                '''
             }
         }
 
-        /* ---------------- KUBERNETES DEPLOY ---------------- */
+        stage('Trivy Image Scan') {
+            steps {
+                sh """
+                trivy image \
+                --severity HIGH,CRITICAL \
+                --exit-code 1 \
+                ${DOCKER_IMAGE}
+                """
+            }
+        }
 
         stage('Deploy to Kubernetes') {
             steps {
@@ -153,11 +137,11 @@ pipeline {
 
     post {
         success {
-            echo "PIPELINE SUCCESS ✔"
+            echo 'PIPELINE SUCCESS ✔'
         }
 
         failure {
-            echo "PIPELINE FAILED ❌"
+            echo 'PIPELINE FAILED ❌'
         }
 
         always {
