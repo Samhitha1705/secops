@@ -198,3 +198,5 @@ Production-like pipeline structure
 This project demonstrates a complete end-to-end DevSecOps pipeline where:
 
 Code is automatically built, tested, scanned for vulnerabilities, containerized, and deployed to Kubernetes with security checks at every stage.
+
+
