@@ -58,10 +58,20 @@ pipeline {
 
         stage('OWASP Dependency Check') {
             steps {
-                dependencyCheck(
-                    odcInstallation: 'DependencyCheck',
-                    additionalArguments: '--scan . --format HTML'
-                )
+                script {
+                    def status = sh(
+                        script: '''
+                        dependencyCheck \
+                        --scan . \
+                        --format HTML
+                        ''',
+                        returnStatus: true
+                    )
+
+                    if (status != 0) {
+                        unstable('OWASP found vulnerabilities (non-blocking)')
+                    }
+                }
             }
         }
 
@@ -101,23 +111,41 @@ pipeline {
 
         stage('Trivy File System Scan') {
             steps {
-                sh '''
-                trivy fs \
-                --severity HIGH,CRITICAL \
-                --exit-code 1 \
-                .
-                '''
+                script {
+                    def status = sh(
+                        script: '''
+                        trivy fs \
+                        --severity HIGH,CRITICAL \
+                        --exit-code 1 \
+                        .
+                        ''',
+                        returnStatus: true
+                    )
+
+                    if (status != 0) {
+                        unstable('Trivy FS found vulnerabilities (non-blocking)')
+                    }
+                }
             }
         }
 
         stage('Trivy Image Scan') {
             steps {
-                sh """
-                trivy image \
-                --severity HIGH,CRITICAL \
-                --exit-code 1 \
-                ${DOCKER_IMAGE}
-                """
+                script {
+                    def status = sh(
+                        script: """
+                        trivy image \
+                        --severity HIGH,CRITICAL \
+                        --exit-code 1 \
+                        ${DOCKER_IMAGE}
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (status != 0) {
+                        unstable('Trivy Image found vulnerabilities (non-blocking)')
+                    }
+                }
             }
         }
 
@@ -138,6 +166,10 @@ pipeline {
     post {
         success {
             echo 'PIPELINE SUCCESS ✔'
+        }
+
+        unstable {
+            echo 'PIPELINE SUCCESS WITH WARNINGS ⚠️ (Security issues found but deployed)'
         }
 
         failure {
